@@ -81,6 +81,11 @@ def read_fastq(fastq_file):
     :param fastq_file: (str) Path to the fastq file.
     :return: A generator object that iterate the read sequences. 
     """
+    with open(fastq_file, 'r') as filin:
+        for line in filin:
+            yield next(filin).strip()
+            next(filin)
+            next(filin)
     pass
 
 
@@ -90,8 +95,10 @@ def cut_kmer(read, kmer_size):
     :param read: (str) Sequence of a read.
     :return: A generator object that iterate the kmers of of size kmer_size.
     """
+    for i in range(len(read) - kmer_size + 1):
+        kmer = read[i:i + kmer_size]
+        yield kmer   
     pass
-
 
 def build_kmer_dict(fastq_file, kmer_size):
     """Build a dictionnary object of all kmer occurrences in the fastq file
@@ -99,8 +106,15 @@ def build_kmer_dict(fastq_file, kmer_size):
     :param fastq_file: (str) Path to the fastq file.
     :return: A dictionnary object that identify all kmer occurrences.
     """
+    kmer_dict = {}
+    for read in read_fastq(fastq_file):
+        for kmer in cut_kmer(read, 3):
+            if kmer in kmer_dict:
+                kmer_dict[kmer] += 1
+            else:
+                kmer_dict[kmer] = 1
+    return kmer_dict
     pass
-
 
 def build_graph(kmer_dict):
     """Build the debruijn graph
@@ -108,6 +122,25 @@ def build_graph(kmer_dict):
     :param kmer_dict: A dictionnary object that identify all kmer occurrences.
     :return: A directed graph (nx) of all kmer substring and weight (occurrence).
     """
+    graph = nx.DiGraph()
+
+    for kmer, count in kmer_dict.items():
+    
+        prefix = kmer[:-1]
+        suffix = kmer[1:]
+
+        if not graph.has_node(prefix):
+            graph.add_node(prefix)
+        if not graph.has_node(suffix):
+            graph.add_node(suffix)
+
+        if graph.has_edge(prefix, suffix):
+            graph[prefix][suffix]['weight'] += count
+        else:
+            graph.add_edge(prefix, suffix, weight=count)
+            
+    return graph
+    
     pass
 
 
@@ -121,6 +154,7 @@ def remove_paths(graph, path_list, delete_entry_node, delete_sink_node):
     :param delete_sink_node: (boolean) True->We remove the last node of a path
     :return: (nx.DiGraph) A directed graph object
     """
+    
     pass
 
 
@@ -187,6 +221,11 @@ def get_starting_nodes(graph):
     :param graph: (nx.DiGraph) A directed graph object
     :return: (list) A list of all nodes without predecessors
     """
+    list_start_nodes = []
+    for node in graph.nodes():
+        if len(list(graph.predecessors(node))) == 0:
+            list_start_nodes.append(node)
+    return list_start_nodes
     pass
 
 def get_sink_nodes(graph):
@@ -248,14 +287,21 @@ def main(): # pragma: no cover
     """
     # Get arguments
     args = get_arguments()
-
+    kmer_dict = build_kmer_dict(args.fastq_file, 3)
+    graph = build_graph(kmer_dict)
+    list_sart_nodes = get_starting_nodes(graph)
+    
     # Fonctions de dessin du graphe
     # A decommenter si vous souhaitez visualiser un petit 
     # graphe
     # Plot the graph
-    # if args.graphimg_file:
-    #     draw_graph(graph, args.graphimg_file)
+    if args.graphimg_file:
+        draw_graph(graph, args.graphimg_file)
 
 
 if __name__ == '__main__': # pragma: no cover
     main()
+
+
+
+    
