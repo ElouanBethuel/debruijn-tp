@@ -223,7 +223,7 @@ def get_starting_nodes(graph):
     """
     list_start_nodes = []
     for node in graph.nodes():
-        if len(list(graph.predecessors(node))) == 0:
+        if len(list(graph.predecessors(node))) == 0: #obligé de convertir en list car itérateur, si la list est vide noeud sans predecesseur
             list_start_nodes.append(node)
     return list_start_nodes
     pass
@@ -234,6 +234,11 @@ def get_sink_nodes(graph):
     :param graph: (nx.DiGraph) A directed graph object
     :return: (list) A list of all nodes without successors
     """
+    list_sink_nodes = []
+    for node in graph.nodes():
+        if len(list(graph.successors(node))) == 0: #obligé de convertir en list car itérateur, si la list est vide noeud sans sucesseur
+            list_sink_nodes.append(node)
+    return list_sink_nodes
     pass
 
 def get_contigs(graph, starting_nodes, ending_nodes):
@@ -244,6 +249,26 @@ def get_contigs(graph, starting_nodes, ending_nodes):
     :param ending_nodes: (list) A list of nodes without successors
     :return: (list) List of [contiguous sequence and their length]
     """
+    list_tuple_contigs = []
+    
+    for node_start in starting_nodes:
+        for node_target in ending_nodes:
+        
+            if nx.has_path(graph, node_start, node_target) == True:      # regard s'il existe un chemin entre noeud de départ et noeud de fin 
+                all_contigs = nx.all_simple_paths(graph, node_start, node_target) # récupère tt les chemin entre c'est deux noeuds
+                
+                for contig in all_contigs:
+                    contig_sequence = ""
+                    
+                    for node in contig:
+                        if len(contig_sequence) == 0:
+                            contig_sequence += node
+                        else:
+                            contig_sequence += node[-1]
+                   
+                    list_tuple_contigs.append((contig_sequence,len(contig_sequence)))
+                        
+    return list_tuple_contigs        
     pass
 
 def save_contigs(contigs_list, output_file):
@@ -252,6 +277,14 @@ def save_contigs(contigs_list, output_file):
     :param contig_list: (list) List of [contiguous sequence and their length]
     :param output_file: (str) Path to the output file
     """
+    
+    with open(output_file, 'w') as file:
+    
+        for index, (contig, length) in enumerate(contigs_list):
+            header = f">contig_{index} len={length}\n"
+            file.write(header)
+            wrapped_contig = textwrap.fill(contig, width=80)
+            file.write(wrapped_contig + '\n')
     pass
 
 
@@ -290,6 +323,8 @@ def main(): # pragma: no cover
     kmer_dict = build_kmer_dict(args.fastq_file, 3)
     graph = build_graph(kmer_dict)
     list_sart_nodes = get_starting_nodes(graph)
+    list_sink_nodes = get_sink_nodes(graph)
+    list_tuple_contigs = get_contigs(graph, list_sart_nodes, list_sink_nodes)
     
     # Fonctions de dessin du graphe
     # A decommenter si vous souhaitez visualiser un petit 
